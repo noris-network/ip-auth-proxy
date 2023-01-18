@@ -27,7 +27,7 @@ func env(envName, defaultValue string) string {
 }
 
 func main() {
-	log.Printf("starting ip-auth-proxy %v", version)
+	log.Printf("ip-auth-proxy %v", version)
 
 	authorizedIPS := ""
 	rawUpstreamURL := ""
