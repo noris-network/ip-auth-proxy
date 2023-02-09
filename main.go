@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	_ "embed"
 	"flag"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -16,6 +19,7 @@ import (
 //go:embed VERSION
 var version string
 var verbose bool
+var enableWekanMetricsHack bool
 var AllowedIPNets []*net.IPNet
 
 func env(envName, defaultValue string) string {
@@ -45,6 +49,8 @@ func main() {
 		listenPort, "port to listen on")
 	flag.StringVar(&rawUpstreamURL, "upstream-url",
 		env("UPSTREAM_URL", "http://127.0.0.1:8080"), "upstream url")
+	flag.BoolVar(&enableWekanMetricsHack, "enable-wekan-metrics-hack",
+		env("ENABLE_WEKAN_METRICS_HACK", "false") == "true", "fix wekan metrics labels")
 	flag.Parse()
 
 	log.Printf("verbose is %v", verbose)
@@ -70,6 +76,7 @@ func main() {
 	proxy := httputil.NewSingleHostReverseProxy(upstreamURL)
 	proxySrv := http.NewServeMux()
 	proxySrv.HandleFunc("/", proxyHandler(proxy))
+	proxy.ModifyResponse = rewriteResponse
 	log.Printf("listen for requests on :%v", listenPort)
 	err = http.ListenAndServe(":"+strconv.Itoa(listenPort), proxySrv)
 	if err != nil {
@@ -118,4 +125,33 @@ func proxyHandler(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Requ
 		req.RemoteAddr = ""
 		p.ServeHTTP(w, req)
 	}
+}
+
+func rewriteResponse(res *http.Response) error {
+
+	if !enableWekanMetricsHack || res.Request.URL.Path != "/metrics" {
+		return nil
+	}
+
+	scanner := bufio.NewScanner(res.Body)
+	bb := bytes.Buffer{}
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, "{n=") {
+			f1, f2, _ := strings.Cut(line, "=")
+			bb.WriteString(f1 + `="`)
+			f3, f4, _ := strings.Cut(f2, "}")
+			bb.WriteString(f3 + `"}` + f4)
+		} else {
+			bb.WriteString(line)
+		}
+		bb.WriteString("\n")
+	}
+
+	body := bb.Bytes()
+	res.Body = ioutil.NopCloser(bytes.NewReader(body))
+	res.ContentLength = int64(len(body))
+	res.Header.Set("Content-Length", strconv.Itoa(len(body)))
+
+	return nil
 }
