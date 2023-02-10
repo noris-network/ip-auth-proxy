@@ -5,6 +5,7 @@ import (
 	"bytes"
 	_ "embed"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -12,6 +13,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -127,6 +129,9 @@ func proxyHandler(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Requ
 	}
 }
 
+var sanitize = regexp.MustCompile("[^a-zA-Z0-9!@#$%^&*()_+\\-=\\[\\]{};'\\:|,./<>?`~ ]+")
+var matcher = regexp.MustCompile(`^(\w+{n=)(.+)(} [0-9.])$`)
+
 func rewriteResponse(res *http.Response) error {
 
 	if !enableWekanMetricsHack || res.Request.URL.Path != "/metrics" {
@@ -138,10 +143,12 @@ func rewriteResponse(res *http.Response) error {
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.Contains(line, "{n=") {
-			f1, f2, _ := strings.Cut(line, "=")
-			bb.WriteString(f1 + `="`)
-			f3, f4, _ := strings.Cut(f2, "}")
-			bb.WriteString(f3 + `"}` + f4)
+			match := matcher.FindStringSubmatch(line)
+			if len(match) == 0 {
+				continue
+			}
+			bb.WriteString(fmt.Sprintf(`%s"%s"%s`, match[1],
+				sanitize.ReplaceAllString(match[2], ""), match[3]))
 		} else {
 			bb.WriteString(line)
 		}
