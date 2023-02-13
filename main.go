@@ -130,7 +130,7 @@ func proxyHandler(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Requ
 }
 
 var sanitize = regexp.MustCompile("[^a-zA-Z0-9!@#$%^&*()_+\\-=\\[\\]{};'\\:|,./<>?`~ ]+")
-var matcher = regexp.MustCompile(`^(\w+{n=)(.+)(} [0-9.])$`)
+var matcher = regexp.MustCompile(`^(\w+{n=)(.+)(} [0-9.]+)$`)
 
 func rewriteResponse(res *http.Response) error {
 
