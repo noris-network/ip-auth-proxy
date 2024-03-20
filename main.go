@@ -6,7 +6,7 @@ import (
 	_ "embed"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -156,7 +156,7 @@ func rewriteResponse(res *http.Response) error {
 	}
 
 	body := bb.Bytes()
-	res.Body = ioutil.NopCloser(bytes.NewReader(body))
+	res.Body = io.NopCloser(bytes.NewReader(body))
 	res.ContentLength = int64(len(body))
 	res.Header.Set("Content-Length", strconv.Itoa(len(body)))
 

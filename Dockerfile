@@ -1,4 +1,4 @@
-FROM        golang:1.20rc3 as builder
+FROM        golang:1.22.1 as builder
 WORKDIR     /go/src/app
 COPY        . ./
 RUN         CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ip-auth-proxy .
